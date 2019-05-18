@@ -27,6 +27,11 @@
 #
 # For more information, please refer to <http://unlicense.org/>
 
+# read vars from .env file if present
+if [ -f ".env" ]; then
+	. ".env"
+fi
+
 # add some travis checks so we don't need to do it in the yaml file
 if [ -n "$TRAVIS" ]; then
 	# don't need to run the packager for pull requests
@@ -59,49 +64,62 @@ toc_version=
 
 # Secrets for uploading
 cf_token=$CF_API_KEY
-github_token=$GITHUB_OAUTH
 wowi_token=$WOWI_API_TOKEN
+github_token=$GITHUB_OAUTH
+gitlab_token=$GITLAB_TOKEN
 
 # Variables set via options.
-slug=
-addonid=
+slug=$CF_ID
+addonid=$WOWI_ID
+addonid_test=$WOWI_ID_TEST
+github_slug=$GH_SLUG
+gitlab_slug=$GL_SLUG
 topdir=
 releasedir=
 overwrite=
 nolib=
 line_ending=dos
+ghgl_infer=true
 skip_copying=
 skip_externals=
 skip_localization=
 skip_zipfile=
 skip_upload=
-skip_gh_upload=
 skip_cf_upload=
 skip_wi_upload=
+skip_gh_upload=
+skip_gl_upload=
 
 # Process command-line options
 usage() {
-	echo "Usage: release.sh [-celzdGCWosu] [-t topdir] [-r releasedir] [-p curse-id] [-w wowi-id] [-g game-version]" >&2
+	echo "Usage: release.sh [-celzdLCWHKosu] [-t topdir] [-r releasedir] [-p curse-id] [-w wowi-id] [-w wowi-id-test] [-h github-slug] [-k gitlab-slug] [-g game-version]" >&2
 	echo "  -c               Skip copying files into the package directory." >&2
 	echo "  -e               Skip checkout of external repositories." >&2
 	echo "  -l               Skip @localization@ keyword replacement." >&2
 	echo "  -z               Skip zip file creation." >&2
 	echo "  -d               Skip uploading." >&2
-	echo "  -G               Skip upload to GitHub." >&2
-	echo "  -C               Skip upload to CurseForge." >&2
+	echo "  -C|L             Skip upload to CurseForge." >&2
 	echo "  -W               Skip upload to WoWInterface." >&2
+	echo "  -H               Skip upload to GitHub." >&2
+	echo "  -K               Skip upload to GitLab." >&2
 	echo "  -o               Keep existing package directory, overwriting its contents." >&2
 	echo "  -s               Create a stripped-down \"nolib\" package." >&2
 	echo "  -u               Use Unix line-endings." >&2
+	echo "  -i               Don't try to infer GitHub/GitLab URLs from the Git remote URL or each other." >&2
 	echo "  -t topdir        Set top-level directory of checkout." >&2
 	echo "  -r releasedir    Set directory containing the package directory. Defaults to \"\$topdir/.release\"." >&2
 	echo "  -p curse-id      Set the project id used on CurseForge for localization and uploading." >&2
 	echo "  -w wowi-id       Set the addon id used on WoWInterface for uploading." >&2
+	echo "  -b wowi-id-test  Set the addon id used on WoWInterface for uploading alpha/beta versions." >&2
+	echo "  -h github-slug   Set the project slug used on GitHub, if different from Git remote URL." >&2
+	echo "  -k gitlab-slug   Set the project slug used on GitLab, if different from Git remote URL." >&2
 	echo "  -g game-version  Set the game version to use for CurseForge uploading." >&2
 }
 
+#TODO: k is a terrible option name for GitLab
+
 OPTIND=1
-while getopts ":celGCWzusop:dw:r:t:g:" opt; do
+while getopts ":celzdLCWHKosut:r:p:w:b:h:k:g:" opt; do
 	case $opt in
 	c)
 		# Skip copying files into the package directory.
@@ -115,14 +133,17 @@ while getopts ":celGCWzusop:dw:r:t:g:" opt; do
 		# Skip @localization@ keyword replacement.
 		skip_localization=true
 		;;
+	z)
+		# Skip generating the zipfile.
+		skip_zipfile=true
+		;;
 	d)
 		# Skip uploading.
 		skip_upload=true
 		;;
-	G)
-		# Skip uploading to GitHub.
-		skip_gh_upload=true
-		;;
+	L)
+		# This is just for legacy support
+		;&
 	C)
 		# Skip uploading to CurseForge.
 		skip_cf_upload=true
@@ -131,9 +152,38 @@ while getopts ":celGCWzusop:dw:r:t:g:" opt; do
 		# Skip uploading to WoWInterface.
 		skip_wi_upload=true
 		;;
+	H)
+		# Skip uploading to GitHub.
+		skip_gh_upload=true
+		;;
+	K)
+		# Skip uploading to GitLab.
+		skip_gl_upload=true
+		;;
 	o)
 		# Skip deleting any previous package directory.
 		overwrite=true
+		;;
+	s)
+		# Create a nolib package.
+		nolib=true
+		skip_externals=true
+		;;
+	u)
+		# Skip Unix-to-DOS line-ending translation.
+		line_ending=unix
+		;;
+	i)
+		# Don't infer GitHub/GitLab URLs from Git remote URL or each other.
+		ghgl_infer=
+		;;
+	t)
+		# Set the top-level directory of the checkout to a non-default value.
+		topdir="$OPTARG"
+		;;
+	r)
+		# Set the release directory to a non-default value.
+		releasedir="$OPTARG"
 		;;
 	p)
 		slug="$OPTARG"
@@ -141,26 +191,14 @@ while getopts ":celGCWzusop:dw:r:t:g:" opt; do
 	w)
 		addonid="$OPTARG"
 		;;
-	r)
-		# Set the release directory to a non-default value.
-		releasedir="$OPTARG"
+	b)
+		addonid_test="$OPTARG"
 		;;
-	s)
-		# Create a nolib package.
-		nolib=true
-		skip_externals=true
+	h)
+		github_slug="$OPTARG"
 		;;
-	t)
-		# Set the top-level directory of the checkout to a non-default value.
-		topdir="$OPTARG"
-		;;
-	u)
-		# Skip Unix-to-DOS line-ending translation.
-		line_ending=unix
-		;;
-	z)
-		# Skip generating the zipfile.
-		skip_zipfile=true
+	k)
+		gitlab_slug="$OPTARG"
 		;;
 	g)
 		# Set version (x.y.z)
@@ -477,8 +515,6 @@ svn)	set_info_svn "$topdir" ;;
 hg) 	set_info_hg  "$topdir" ;;
 esac
 
-si_repo_url="https://github.com/shrugal/PersoLootRoll.git" # TODO
-
 tag=$si_tag
 project_version=$si_project_version
 previous_version=$si_previous_tag
@@ -486,13 +522,55 @@ project_hash=$si_project_hash
 project_revision=$si_project_revision
 previous_revision=$si_previous_revision
 project_timestamp=$si_project_timestamp
-project_github_url=
-project_github_slug=
-if [[ "$si_repo_url" == "https://github.com"* ]]; then
-	project_github_url=${si_repo_url%.git}
-	project_github_slug=${project_github_url#https://github.com/}
-fi
 project_site=
+
+# GitHub/GitLab info
+github_url=
+gitlab_url=
+# Infer slugs from remote URL and each other
+if [ -n "$ghgl_infer" ]; then
+	if [[ -z "$github_slug" && "$si_repo_url" == "https://github.com"* ]]; then
+		github_url=${si_repo_url%.git}
+		github_slug=${github_url#https://github.com/}
+	fi
+	if [[ -z "$gitlab_slug" && "$si_repo_url" == "https://gitlab.com"* ]]; then
+		gitlab_url=${si_repo_url%.git}
+		gitlab_slug=${gitlab_url#https://gitlab.com/}
+	fi
+
+	github_slug=${github_slug:-$gitlab_slug}
+	gitlab_slug=${gitlab_slug:-$github_slug}
+fi
+# Set URLs from slugs
+if [ -n "$github_slug" ]; then
+	github_url="https://github.com/$github_slug"
+fi
+if [ -n "$gitlab_slug" ]; then
+	gitlab_url="https://gitlab.com/$gitlab_slug"
+fi
+
+githost_url=${github_url:-$gitlab_url}
+githost_token=${github_token:-$gitlab_token}
+
+# Untagged commits or commit tags containing the word "alpha" are
+# considered alphas. If the tag contains only dots and digits and
+# optionally starts with the letter v (such as "v1.2.3" or "v1.23"
+# or "3.2") or contains the word "release" or "stable", then it is
+# considered a release tag. If the above conditions don't match, it
+# is considered a beta tag.
+release_type=
+if [[ -z $tag || "${tag,,}" == *"alpha"* ]]; then
+	release_type=alpha
+elif [[ "$tag" =~ ^v?[0-9][0-9.]*$ || "${tag,,}" == *"release"* || "${tag,,}" == *"stable"* ]]; then
+	release_type=release
+else
+	release_type=beta
+fi
+
+# Switch to WoWInterface test project if provided
+if [[ -n "$addonid_test" && "$release_type" != "release" ]]; then
+	addonid=$addonid_test
+fi
 
 # Bare carriage-return character.
 carriage_return=$( printf "\r" )
@@ -747,6 +825,7 @@ if [ -z "$nolib" ]; then
 else
 	echo "Packaging $package (nolib)"
 fi
+echo "Release type: $release_type"
 if [ -n "$project_version" ]; then
 	echo "Current version: $project_version"
 fi
@@ -771,9 +850,24 @@ fi
 if [ -n "$addonid" ]; then
 	echo "WoWInterface ID: $addonid${wowi_token:+ [token set]}"
 fi
-if [ -n "$project_github_slug" ]; then
-	echo "GitHub: $project_github_slug${github_token:+ [token set]}"
+if [ -n "$github_slug" ]; then
+	echo "GitHub: $github_slug${github_token:+ [token set]}"
 fi
+if [ -n "$gitlab_slug" ]; then
+	echo "GitLab: $gitlab_slug${gitlab_token:+ [token set]}"
+fi
+
+[ -n "$skip_copying" ] 		&& skipping="copying"
+[ -n "$skip_externals" ] 	&& skipping="$skipping${skipping:+, }externals"
+[ -n "$skip_localization" ] && skipping="$skipping${skipping:+, }localization"
+[ -n "$skip_zipfile" ] 		&& skipping="$skipping${skipping:+, }zipfile"
+[ -n "$skip_upload" ] 		&& skipping="$skipping${skipping:+, }upload"
+[ -n "$skip_cf_upload" ] 	&& skipping="$skipping${skipping:+, }CurseForge"
+[ -n "$skip_wi_upload" ] 	&& skipping="$skipping${skipping:+, }WoWInterface"
+[ -n "$skip_gh_upload" ] 	&& skipping="$skipping${skipping:+, }GitHub"
+[ -n "$skip_gl_upload" ] 	&& skipping="$skipping${skipping:+, }GitLab"
+echo "Skipping: $skipping"
+
 echo
 echo "Checkout directory: $topdir"
 echo "Release directory: $releasedir"
@@ -1303,7 +1397,7 @@ checkout_external() {
 			git clone -q --depth 1 --branch "$_external_tag" "$_external_uri" "$_cqe_checkout_dir" || return 1
 		else # [ "$_external_tag" = "latest" ]; then
 			git clone -q --depth 50 "$_external_uri" "$_cqe_checkout_dir" || return 1
-			_external_tag=$( git -C "$_cqe_checkout_dir" for-each-ref refs/tags --sort=-taggerdate --format=%\(refname:short\) --count=1 )
+			_external_tag=$( git -C "$_cqe_checkout_dir" for-each-ref refs/tags --sort=-creatordate --format=%\(refname:short\) --count=1 )
 			if [ -n "$_external_tag" ]; then
 				echo "Fetching tag \"$_external_tag\" from external $_external_uri"
 				git -C "$_cqe_checkout_dir" checkout -q "$_external_tag"
@@ -1628,35 +1722,35 @@ if [ ! -f "$topdir/$changelog" -a ! -f "$topdir/CHANGELOG.txt" -a ! -f "$topdir/
 		_changelog_range=
 		if [ -z "$previous_version" -a -z "$tag" ]; then
 			# no range, show all commits up to ours
-			changelog_url="[Full Changelog](${project_github_url}/commits/$project_hash)"
-			changelog_version="[$project_version](${project_github_url}/tree/$project_hash)"
-			changelog_url_wowi="[url=${project_github_url}/commits/$project_hash]Full Changelog[/url]"
-			changelog_version_wowi="[url=${project_github_url}/tree/$project_hash]$project_version[/url]"
+			changelog_url="[Full Changelog](${githost_url}/commits/$project_hash)"
+			changelog_version="[$project_version](${githost_url}/tree/$project_hash)"
+			changelog_url_wowi="[url=${githost_url}/commits/$project_hash]Full Changelog[/url]"
+			changelog_version_wowi="[url=${githost_url}/tree/$project_hash]$project_version[/url]"
 			_changelog_range="$project_hash"
 		elif [ -z "$previous_version" -a -n "$tag" ]; then
 			# first tag, show all commits upto it
-			changelog_url="[Full Changelog](${project_github_url}/commits/$tag)"
-			changelog_version="[$project_version](${project_github_url}/tree/$tag)"
-			changelog_url_wowi="[url=${project_github_url}/commits/$tag]Full Changelog[/url]"
-			changelog_version_wowi="[url=${project_github_url}/tree/$tag]$project_version[/url]"
+			changelog_url="[Full Changelog](${githost_url}/commits/$tag)"
+			changelog_version="[$project_version](${githost_url}/tree/$tag)"
+			changelog_url_wowi="[url=${githost_url}/commits/$tag]Full Changelog[/url]"
+			changelog_version_wowi="[url=${githost_url}/tree/$tag]$project_version[/url]"
 			_changelog_range="$tag"
 		elif [ -n "$previous_version" -a -z "$tag" ]; then
 			# compare between last tag and our commit
-			changelog_url="[Full Changelog](${project_github_url}/compare/$previous_version...$project_hash)"
-			changelog_version="[$project_version](${project_github_url}/tree/$project_hash)"
-			changelog_url_wowi="[url=${project_github_url}/compare/$previous_version...$project_hash]Full Changelog[/url]"
-			changelog_version_wowi="[url=${project_github_url}/tree/$project_hash]$project_version[/url]"
+			changelog_url="[Full Changelog](${githost_url}/compare/$previous_version...$project_hash)"
+			changelog_version="[$project_version](${githost_url}/tree/$project_hash)"
+			changelog_url_wowi="[url=${githost_url}/compare/$previous_version...$project_hash]Full Changelog[/url]"
+			changelog_version_wowi="[url=${githost_url}/tree/$project_hash]$project_version[/url]"
 			_changelog_range="$previous_version..$project_hash"
 		elif [ -n "$previous_version" -a -n "$tag" ]; then
 			# compare between last tag and our tag
-			changelog_url="[Full Changelog](${project_github_url}/compare/$previous_version...$tag)"
-			changelog_version="[$project_version](${project_github_url}/tree/$tag)"
-			changelog_url_wowi="[url=${project_github_url}/compare/$previous_version...$tag]Full Changelog[/url]"
-			changelog_version_wowi="[url=${project_github_url}/tree/$tag]$project_version[/url]"
+			changelog_url="[Full Changelog](${githost_url}/compare/$previous_version...$tag)"
+			changelog_version="[$project_version](${githost_url}/tree/$tag)"
+			changelog_url_wowi="[url=${githost_url}/compare/$previous_version...$tag]Full Changelog[/url]"
+			changelog_version_wowi="[url=${githost_url}/tree/$tag]$project_version[/url]"
 			_changelog_range="$previous_version..$tag"
 		fi
 		# lazy way out
-		if [ -z "$project_github_url" ]; then
+		if [ -z "$githost_url" ]; then
 			changelog_url=
 			changelog_version=$project_version
 			changelog_url_wowi=
@@ -1683,8 +1777,8 @@ if [ ! -f "$topdir/$changelog" -a ! -f "$topdir/CHANGELOG.txt" -a ! -f "$topdir/
 		# the file is deleted on successful upload
 		if [ -n "$addonid" -a -n "$tag" -a -n "$wowi_gen_changelog" ]; then
 			changelog_previous_wowi=
-			if [ -n "$project_github_url" -a -n "$github_token" ]; then
-				changelog_previous_wowi="[url=${project_github_url}/releases]Previous releases[/url]"
+			if [ -n "$githost_url" -a -n "$githost_token" ]; then
+				changelog_previous_wowi="[url=${githost_url}/releases]Previous releases[/url]"
 			fi
 			wowi_changelog="$releasedir/WOWI-$project_version-CHANGELOG.txt"
 			cat <<- EOF | line_ending_filter > "$wowi_changelog"
@@ -1918,20 +2012,22 @@ if [ -z "$skip_upload" ]; then
 		exit_code=1
 	fi
 
-
-	upload_github=$( [[ -z "$skip_gh_upload" && -n "$tag" && -n "$project_github_slug" && -n "$github_token" ]] && echo true )
 	upload_curseforge=$( [[ -z "$skip_cf_upload" && -n "$slug" && -n "$cf_token" && -n "$project_site" ]] && echo true )
 	upload_wowinterface=$( [[ -z "$skip_wi_upload" && -n "$tag" && -n "$addonid" && -n "$wowi_token" ]] && echo true )
+	upload_github=$( [[ -z "$skip_gh_upload" && -n "$tag" && -n "$github_slug" && -n "$github_token" ]] && echo true )
+	upload_gitlab=$( [[ -z "$skip_gl_upload" && -n "$tag" && -n "$gitlab_slug" && -n "$gitlab_token" ]] && echo true )
 
-	if [ -n "$upload_curseforge" -o -n "$upload_wowinterface" -o -n "$upload_github" ] && ! which jq &>/dev/null; then
+	if [ -n "$upload_curseforge" -o -n "$upload_wowinterface" -o -n "$upload_github" -o -n "$upload_gitlab" ] && ! which jq &>/dev/null; then
 		echo "Skipping upload because \"jq\" was not found."
 		echo
-		upload_github=
 		upload_curseforge=
 		upload_wowinterface=
+		upload_github=
+		upload_gitlab=
 		exit_code=1
 	fi
 
+	# Upload to CurseForge.
 	if [ -n "$upload_curseforge" ]; then
 		if [ -n "$game_version" ]; then
 			game_version_id=$(
@@ -1949,85 +2045,123 @@ if [ -z "$skip_upload" ]; then
 			game_version_id=$( curl -s -H "x-api-token: $cf_token" $project_site/api/game/versions | jq -c 'max_by(.id) | [.id]' 2>/dev/null )
 			game_version=$( curl -s -H "x-api-token: $cf_token" $project_site/api/game/versions | jq -r 'max_by(.id) | .name' 2>/dev/null )
 		fi
-		if [ -z "$game_version_id" ]; then
+
+		if [ -n "$game_version_id" ]; then
+			_cf_payload=$( cat <<-EOF
+			{
+			  "displayName": "$project_version",
+			  "gameVersions": $game_version_id,
+			  "releaseType": "$release_type",
+			  "changelog": $( cat "$pkgdir/$changelog" | jq --slurp --raw-input '.' ),
+			  "changelogType": "markdown"
+			}
+			EOF
+			)
+
+			echo "Uploading $archive_name ($game_version $release_type) to $project_site/projects/$slug"
+			resultfile="$releasedir/cf_result.json"
+			result=$( curl -sS --retry 3 --retry-delay 10 \
+					-w "%{http_code}" -o "$resultfile" \
+					-H "x-api-token: $cf_token" \
+					-F "metadata=$_cf_payload" \
+					-F "file=@$archive" \
+					"$project_site/api/projects/$slug/upload-file" )
+			if [ $? -eq 0 ]; then
+				case $result in
+					200) echo "Success!" ;;
+					302)
+						echo "Error! ($result)"
+						# don't need to ouput the redirect page
+						exit_code=1
+						;;
+					404)
+						echo "Error! No project for \"$slug\" found."
+						exit_code=1
+						;;
+					*)
+						echo "Error! ($result)"
+						if [ -s "$resultfile" ]; then
+							echo "$(<"$resultfile")"
+						fi
+						exit_code=1
+						;;
+				esac
+			else
+				exit_code=1
+			fi
+			echo
+
+			rm -f "$resultfile" 2>/dev/null
+		else
 			echo "Error fetching game version info from $project_site/api/game/versions"
 			echo
 			echo "Skipping upload to CurseForge."
 			echo
-			upload_curseforge=
 			exit_code=1
 		fi
 	fi
 
-	# Upload to CurseForge.
-	if [ -n "$upload_curseforge" ]; then
-		# If the tag contains only dots and digits and optionally starts with
-		# the letter v (such as "v1.2.3" or "v1.23" or "3.2") or contains the
-		# word "release", then it is considered a release tag. If the above
-		# conditions don't match, it is considered a beta tag. Untagged commits
-		# are considered alphas.
-		file_type=alpha
-		if [ -n "$tag" ]; then
-			if [[ "$tag" =~ ^v?[0-9][0-9.]*$ || "${tag,,}" == *"stable"* ]]; then
-				file_type=release
-			elif [[ "${tag,,}" == *"beta"* ]]; then
-				file_type=beta
-			fi
-		fi
-
-		_cf_payload=$( cat <<-EOF
-		{
-		  "displayName": "$project_version",
-		  "gameVersions": $game_version_id,
-		  "releaseType": "$file_type",
-		  "changelog": $( cat "$pkgdir/$changelog" | jq --slurp --raw-input '.' ),
-		  "changelogType": "markdown"
-		}
-		EOF
-		)
-
-		echo "Uploading $archive_name ($game_version $file_type) to $project_site/projects/$slug"
-		resultfile="$releasedir/cf_result.json"
-		result=$( curl -sS --retry 3 --retry-delay 10 \
-				-w "%{http_code}" -o "$resultfile" \
-				-H "x-api-token: $cf_token" \
-				-F "metadata=$_cf_payload" \
-				-F "file=@$archive" \
-				"$project_site/api/projects/$slug/upload-file" )
-		if [ $? -eq 0 ]; then
-			case $result in
-				200) echo "Success!" ;;
-				302)
-					echo "Error! ($result)"
-					# don't need to ouput the redirect page
-					exit_code=1
-					;;
-				404)
-					echo "Error! No project for \"$slug\" found."
-					exit_code=1
-					;;
-				*)
-					echo "Error! ($result)"
-					if [ -s "$resultfile" ]; then
-						echo "$(<"$resultfile")"
-					fi
-					exit_code=1
-					;;
-			esac
-		else
-			exit_code=1
-		fi
-		echo
-
-		rm -f "$resultfile" 2>/dev/null
-	fi
-
+	# Upload tags to WoWInterface.
 	if [ -n "$upload_wowinterface" ]; then
 		game_version=$( curl -s -H "x-api-token: $wowi_token" https://api.wowinterface.com/addons/compatible.json | jq -r '.[] | select(.interface == "'$toc_version'") | .id' 2>/dev/null )
 		if [ -z "$game_version" ]; then
 			game_version=$( curl -s -H "x-api-token: $wowi_token" https://api.wowinterface.com/addons/compatible.json | jq -r '.[] | select(.default == true) | .id' 2>/dev/null )
 		fi
-		if [ -z "$game_version" ]; then
+
+		if [ -n "$game_version" ]; then
+			_wowi_changelog=
+			if [ -f "$wowi_changelog" ]; then
+				_wowi_changelog="<$wowi_changelog"
+			elif [ -n "$manual_changelog" ]; then
+				_wowi_changelog="<$pkgdir/$changelog"
+			fi
+
+			_wowi_archive="Yes"
+			if [ -z "$wowi_archive" ]; then
+				_wowi_archive="No"
+			fi
+
+			echo "Uploading $archive_name ($game_version) to https://www.wowinterface.com/downloads/info$addonid"
+			resultfile="$releasedir/wi_result.json"
+			result=$( curl -sS --retry 3 --retry-delay 10 \
+				  -w "%{http_code}" -o "$resultfile" \
+				  -H "x-api-token: $wowi_token" \
+				  -F "id=$addonid" \
+				  -F "version=$archive_version" \
+				  -F "compatible=$game_version" \
+				  -F "changelog=$_wowi_changelog" \
+				  -F "archive=$_wowi_archive" \
+				  -F "updatefile=@$archive" \
+				  "https://api.wowinterface.com/addons/update" )
+			if [ $? -eq 0 ]; then
+				case $result in
+					202)
+						echo "Success!"
+						rm -f "$wowi_changelog" 2>/dev/null
+						;;
+					401)
+						echo "Error! No addon for id \"$addonid\" found or you do not have permission to upload files."
+						exit_code=1
+						;;
+					403)
+						echo "Error! Incorrect api key or you do not have permission to upload files."
+						exit_code=1
+						;;
+					*)
+						echo "Error! ($result)"
+						if [ -s "$resultfile" ]; then
+							echo "$(<"$resultfile")"
+						fi
+						exit_code=1
+						;;
+				esac
+			else
+				exit_code=1
+			fi
+			echo
+
+			rm -f "$resultfile" 2>/dev/null
+		else
 			echo "Error fetching game version info from https://api.wowinterface.com/addons/compatible.json"
 			echo
 			echo "Skipping upload to WoWInterface."
@@ -2037,151 +2171,206 @@ if [ -z "$skip_upload" ]; then
 		fi
 	fi
 
-	# Upload tags to WoWInterface.
-	if [ -n "$upload_wowinterface" ]; then
-		_wowi_changelog=
-		if [ -f "$wowi_changelog" ]; then
-			_wowi_changelog="<$wowi_changelog"
-		elif [ -n "$manual_changelog" ]; then
-			_wowi_changelog="<$pkgdir/$changelog"
+	if [[ -n "$upload_github" || -n "$upload_gitlab" ]]; then
+		# Create changelog
+		project_site_name="CurseForge"
+		if [ "$project_site" == "https://www.wowace.com" ]; then
+			project_site_name="WowAce";
 		fi
 
-		_wowi_archive="Yes"
-		if [ -z "$wowi_archive" ]; then
-			_wowi_archive="No"
+		changlog_githost="$pkgdir/$changelog"
+		_changlog_githost="$releasedir/CHANGELOG_GITHOST.md"
+		if [ -f "$changlog_githost" ]; then
+			cp "$changlog_githost" "$_changlog_githost"
+			changlog_githost="$_changlog_githost"
+
+			if [[ -n "$slug" || -n "$addonid" ]]; then
+				echo -e "\nGet from " >> "$changlog_githost"
+
+				if [ -n "$slug" ]; then
+					echo "[$project_site_name]($project_site/projects/$slug)" >> "$changlog_githost"
+				fi
+				if [[ -n "$slug" && -n "$addonid" ]]; then
+					echo " or " >> "$changlog_githost"
+				fi
+				if [ -n "$addonid" ]; then
+					echo "[WoWInterface](https://www.wowinterface.com/downloads/info$addonid.html)" >> "$changlog_githost"
+				fi
+			fi
 		fi
 
-		echo "Uploading $archive_name ($game_version) to https://www.wowinterface.com/downloads/info$addonid"
-		resultfile="$releasedir/wi_result.json"
-		result=$( curl -sS --retry 3 --retry-delay 10 \
-			  -w "%{http_code}" -o "$resultfile" \
-			  -H "x-api-token: $wowi_token" \
-			  -F "id=$addonid" \
-			  -F "version=$archive_version" \
-			  -F "compatible=$game_version" \
-			  -F "changelog=$_wowi_changelog" \
-			  -F "archive=$_wowi_archive" \
-			  -F "updatefile=@$archive" \
-			  "https://api.wowinterface.com/addons/update" )
-		if [ $? -eq 0 ]; then
-			case $result in
-				202)
-					echo "Success!"
-					rm -f "$wowi_changelog" 2>/dev/null
-					;;
-				401)
-					echo "Error! No addon for id \"$addonid\" found or you do not have permission to upload files."
+
+		# Create a GitHub Release for tags and upload the zipfile as an asset.
+		if [ -n "$upload_github" ]; then
+			upload_github_asset() {
+				_ghf_release_id=$1
+				_ghf_file_name=$2
+				_ghf_file_path=$3
+				_ghf_resultfile="$releasedir/gh_asset_result.json"
+				echo -n "Uploading $_ghf_file_name... "
+				result=$( curl -sS --retry 3 --retry-delay 10 \
+						-w "%{http_code}" -o "$_ghf_resultfile" \
+						-H "Authorization: token $github_token" \
+						-H "Content-Type: application/zip" \
+						--data-binary "@$_ghf_file_path" \
+						"https://uploads.github.com/repos/$github_slug/releases/$_ghf_release_id/assets?name=$_ghf_file_name" )
+				if [ $? -eq 0 ]; then
+					if [ "$result" -eq "201" ]; then
+						echo "Success!"
+					else
+						echo "Error ($result)"
+						if [ -s "$_ghf_resultfile" ]; then
+							echo "$(<"$_ghf_resultfile")"
+						fi
+						exit_code=1
+					fi
+				else
 					exit_code=1
-					;;
-				403)
-					echo "Error! Incorrect api key or you do not have permission to upload files."
-					exit_code=1
-					;;
-				*)
+				fi
+
+				rm -f "$_ghf_resultfile" 2>/dev/null
+			}
+
+			# check if a release exists and delete it
+			release_id=$( curl -sS "https://api.github.com/repos/$github_slug/releases/tags/$tag" | jq '.id | select(. != null)' )
+			if [ -n "$release_id" ]; then
+				curl -s -H "Authorization: token $github_token" -X DELETE "https://api.github.com/repos/$github_slug/releases/$release_id" &>/dev/null
+				release_id=
+			fi
+
+			_gh_payload=$( cat <<-EOF
+			{
+			  "tag_name": "$tag",
+			  "name": "$tag",
+			  "body": $( cat "$changlog_githost" | jq --slurp --raw-input '.' ),
+			  "draft": false,
+			  "prerelease": $( [[ "$release_type" =~ "release" ]] && echo true || echo false )
+			}
+			EOF
+			)
+
+			echo "Creating GitHub release: https://github.com/$github_slug/releases/tag/$tag"
+			resultfile="$releasedir/gh_result.json"
+			result=$( curl -sS --retry 3 --retry-delay 10 \
+					-w "%{http_code}" -o "$resultfile" \
+					-H "Authorization: token $github_token" \
+					-d "$_gh_payload" \
+					"https://api.github.com/repos/$github_slug/releases" )
+			if [ $? -eq 0 ]; then
+				if [ "$result" = "201" ]; then
+					release_id=$( cat "$resultfile" | jq '.id' )
+					upload_github_asset "$release_id" "$archive_name" "$archive"
+					if [ -f "$nolib_archive" ]; then
+						upload_github_asset "$release_id" "$nolib_archive_name" "$nolib_archive"
+					fi
+				else
 					echo "Error! ($result)"
 					if [ -s "$resultfile" ]; then
 						echo "$(<"$resultfile")"
 					fi
 					exit_code=1
-					;;
-			esac
-		else
-			exit_code=1
+				fi
+			else
+				exit_code=1
+			fi
+			echo
+
+			rm -f "$resultfile" 2>/dev/null
 		fi
-		echo
 
-		rm -f "$resultfile" 2>/dev/null
-	fi
+		# Create a GitHub Release for tags and upload the zipfile as an asset.
+		if [ -n "$upload_gitlab" ]; then
+			urlencode() {
+				local length="${#1}"
+				for (( i = 0; i < length; i++ )); do
+					local c="${1:i:1}"
+					case $c in
+						[a-zA-Z0-9.~_-]) printf "$c" ;;
+						*) printf '%%%02X' "'$c" ;;
+					esac
+				done
+			}
 
-	# Create a GitHub Release for tags and upload the zipfile as an asset.
-	if [ -n "$upload_github" ]; then
-		upload_github_asset() {
-			_ghf_release_id=$1
-			_ghf_file_name=$2
-			_ghf_file_path=$3
-			_ghf_resultfile="$releasedir/gh_asset_result.json"
-			echo -n "Uploading $_ghf_file_name... "
-			result=$( curl -sS --retry 3 --retry-delay 10 \
-					-w "%{http_code}" -o "$_ghf_resultfile" \
-					-H "Authorization: token $github_token" \
-					-H "Content-Type: application/zip" \
-					--data-binary "@$_ghf_file_path" \
-					"https://uploads.github.com/repos/$project_github_slug/releases/$_ghf_release_id/assets?name=$_ghf_file_name" )
-			if [ $? -eq 0 ]; then
-				if [ "$result" -eq "201" ]; then
-					echo "Success!"
-				else
-					echo "Error ($result)"
-					if [ -s "$_ghf_resultfile" ]; then
-						echo "$(<"$_ghf_resultfile")"
+			gitlab_id=$(urlencode "$gitlab_slug")
+			gitlab_assets=
+
+			upload_gitlab_asset() {
+				_glf_file_name=$1
+				_glf_file_path=$2
+				_glf_resultfile="$releasedir/gl_asset_result.json"
+				_glf_exit_code=0
+				echo -n "Uploading $_glf_file_name... "
+				result=$( curl -sS --retry 3 --retry-delay 10 \
+						-w "%{http_code}" -o "$_glf_resultfile" \
+						-H "PRIVATE-TOKEN: $gitlab_token" \
+						-F "file=@$_glf_file_path" \
+						"https://gitlab.com/api/v4/projects/$gitlab_id/uploads" )
+				if [ $? -eq 0 ]; then
+					if [ "$result" -eq "201" ]; then
+						echo "Success!"
+						_glf_file_url=$(jq -f "$_glf_resultfile" '.url')
+						gitlab_assets=`${gitlab_assets:+,}{"name":"$_glf_file_name","url":"https://gitlab.com/$gitlab_slug$_glf_file_url"}`
+					else
+						echo "Error ($result)"
+						if [ -s "$_ghf_resultfile" ]; then
+							echo "$(<"$_ghf_resultfile")"
+						fi
+						_glf_exit_code=1
 					fi
+				else
+					_glf_exit_code=1
+				fi
+
+				rm -f "$_glf_resultfile" 2>/dev/null
+				return $_glf_exit_code
+			}
+
+			# Upload archives
+			upload_gitlab_asset "$archive_name" "$archive" && [ -f "$nolib_archive" ] && upload_gitlab_asset "$nolib_archive_name" "$nolib_archive"
+			if [ "$_glf_exit_code" -eq "1" ]; then
+				exit_code=1
+			else
+				# delete existing release for the tag
+				curl -sS -r DELETE -H "PRIVATE-TOKEN: $gitlab_token" "https://gitlab.com/api/v4/projects/$gitlab_id/releases/$tag"
+
+				_gl_payload=$( cat <<-EOF
+				{
+					"tag_name": "$tag",
+					"name": "$tag",
+					"description": $( cat "$changelog_gitlab" | jq --slurp --raw-input '.' ),
+					"assets": {"links": [$gitlab_assets]}
+				}
+				EOF
+				)
+
+				echo "Creating GitLab release: https://gitlab.com/$gitlab_slug/releases"
+				resultfile="$releasedir/gl_result.json"
+				result=$( curl -sS --retry 3 --retry-delay 10 \
+						-w "%{http_code}" -o "$resultfile" \
+						-H "PRIVATE-TOKEN: $gitlab_token" \
+						-d "$_gl_payload" \
+						"https://gitlab.com/api/v4/projects/$gitlab_id/releases" )
+				if [ $? -eq 0 ]; then
+					if [ "$result" = "201" ]; then
+						echo "Success!"
+					else
+						echo "Error! ($result)"
+						if [ -s "$resultfile" ]; then
+							echo "$(<"$resultfile")"
+						fi
+						exit_code=1
+					fi
+				else
 					exit_code=1
 				fi
-			else
-				exit_code=1
+				echo
+
+				rm -f "$resultfile" 2>/dev/null
 			fi
-
-			rm -f "$_ghf_resultfile" 2>/dev/null
-		}
-
-		# check if a release exists and delete it
-		release_id=$( curl -sS "https://api.github.com/repos/$project_github_slug/releases/tags/$tag" | jq '.id | select(. != null)' )
-		if [ -n "$release_id" ]; then
-			curl -s -H "Authorization: token $github_token" -X DELETE "https://api.github.com/repos/$project_github_slug/releases/$release_id" &>/dev/null
-			release_id=
 		fi
 
-		# Create github changelog
-		changelog_github="$pkgdir/$changelog"
-		_changelog_github="$releasedir/CHANGELOG_GITHUB.md"
-		if [ -f "$changelog_github" ]; then
-			cp "$changelog_github" "$_changelog_github"
-			changelog_github="$_changelog_github"
-			echo $'\n' >> "$changelog_github"
-			echo "Get from [Curse](https://wow.curseforge.com/projects/persolootroll) or [WoWInterface](https://www.wowinterface.com/downloads/info$addonid.html)" >> "$changelog_github"
-		fi
-
-		_gh_payload=$( cat <<-EOF
-		{
-		  "tag_name": "$tag",
-		  "name": "Version $tag",
-		  "body": $( cat "$changelog_github" | jq --slurp --raw-input '.' ),
-		  "draft": false,
-		  "prerelease": $( [[ -z "$tag" || ! ( "$tag" =~ ^v?[0-9][0-9.]*$ || "${tag,,}" == *"stable"* ) ]] && echo true || echo false )
-		}
-		EOF
-		)
-
-		echo "Creating GitHub release: https://github.com/$project_github_slug/releases/tag/$tag"
-		resultfile="$releasedir/gh_result.json"
-		result=$( curl -sS --retry 3 --retry-delay 10 \
-				-w "%{http_code}" -o "$resultfile" \
-				-H "Authorization: token $github_token" \
-				-d "$_gh_payload" \
-				"https://api.github.com/repos/$project_github_slug/releases" )
-		if [ $? -eq 0 ]; then
-			if [ "$result" = "201" ]; then
-				release_id=$( cat "$resultfile" | jq '.id' )
-				upload_github_asset "$release_id" "$archive_name" "$archive"
-				if [ -f "$nolib_archive" ]; then
-					upload_github_asset "$release_id" "$nolib_archive_name" "$nolib_archive"
-				fi
-			else
-				echo "Error! ($result)"
-				if [ -s "$resultfile" ]; then
-					echo "$(<"$resultfile")"
-				fi
-				exit_code=1
-			fi
-		else
-			exit_code=1
-		fi
-		echo
-
-		rm -f "$resultfile" 2>/dev/null
-
-		if [ -f "$_changelog_github" ]; then
-			rm -f "$_changelog_github" 2>/dev/null
+		if [ -f "$_changelog_githost" ]; then
+			rm -f "$_changelog_githost" 2>/dev/null
 		fi
 	fi
 fi
