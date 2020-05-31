@@ -1,0 +1,2 @@
+#marker-rule: /local[ ]*function ([\w]+)[ ]*\(/||%1||Local Function
+#marker-rule: /function ([\w]+[:.]+[\w]+)/||%1||Class Function

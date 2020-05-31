@@ -26,6 +26,7 @@ Self.DEFAULTS = {
         bidPublic = false,
         chillMode = false,
         allowDisenchant = false,
+        simpleRoll = true,
 
         -- UI
         ui = {

@@ -415,7 +415,7 @@ function Self:GetLinkInfo()
         local i, attr = 0
         for v in self.link:gmatch(":(%-?%d*)") do
             i = i + 1
-   
+
             if info.bonusIds and Util.Num.In(i - info.numBonusIds, 1, self.numBonusIds or 0) then
                 Util.Tbl.Set(self, "bonusIds", i - info.numBonusIds, tonumber(v))
             else
@@ -425,7 +425,7 @@ function Self:GetLinkInfo()
                 end
             end
         end
-        
+
         -- Some extra infos TODO: This is a workaround for epic item links having color "a335ee", but ITEM_QUALITY_COLORS has "a334ee"
         self.quality = self.color == "a335ee" and 4 or self.color and Util.Tbl.FindWhere(ITEM_QUALITY_COLORS, "hex", "|cff" .. self.color) or 1
         self.infoLevel = Self.INFO_LINK
@@ -437,7 +437,7 @@ end
 -- Get info from GetItemInfo()
 function Self:GetBasicInfo()
     self:GetLinkInfo()
-    
+
     if self.infoLevel == Self.INFO_LINK then
         local data = Util.Tbl.New(GetItemInfo(self.link))
         if next(data) then
@@ -448,7 +448,7 @@ function Self:GetBasicInfo()
             for attr,pos in pairs(Self.INFO.basic) do
                 self[attr] = data[pos]
             end
-            
+
             -- Some extra data
             self.level = level or self.level
             self.baseLevel = baseLevel or self.level
@@ -789,7 +789,7 @@ function Self:CanBeEquipped(unit, ...)
     if not self:GetBasicInfo().isEquippable then
         return false
     end
-    
+
     self:GetFullInfo()
 
     unit = unit or "player"
@@ -868,7 +868,7 @@ function Self:HasMatchingAttributes(unit, ...)
             end
         end
     end
-    
+
     return false
 end
 
@@ -987,7 +987,7 @@ function Self:GetEligible(unit)
             if Addon.DEBUG and self.isOwner and eligible[UnitName("player")] == nil then
                 eligible[UnitName("player")] = self:GetEligible("player")
             end
-            
+
             self.eligible = eligible
         end
     end
@@ -1019,22 +1019,39 @@ end
 function Self:ShouldBeChecked(owner)
     owner = owner or type(self) == "table" and self.owner
     local item = type(self) == "table" and self.link or self
-    return item and owner and not (Addon.db.profile.dontShare and not Unit.IsSelf(owner)) and IsEquippableItem(item) and Self.HasSufficientQuality(item, true)
+
+    if Addon.db.profile.simpleRoll then
+        return item and owner and not Addon.db.profile.dontShare and Self.HasSufficientQuality(item, true)
+    else
+        return item and owner and not (Addon.db.profile.dontShare and not Unit.IsSelf(owner)) and IsEquippableItem(item) and Self.HasSufficientQuality(item, true)
+    end
 end
 
 -- Check if the item should be handled by the addon
 function Self:ShouldBeConsidered()
-    return self:HasSufficientQuality() and self:GetBasicInfo().isEquippable and self:GetFullInfo().isTradable
+    if Addon.db.profile.simpleRoll then
+        return self:HasSufficientQuality() and self:GetFullInfo().isTradable
+    else
+        return self:HasSufficientQuality() and self:GetBasicInfo().isEquippable and self:GetFullInfo().isTradable
+    end
 end
 
 -- Check if the addon should offer to bid on an item
 function Self:ShouldBeBidOn()
-    return not Addon.db.profile.dontShare and self:ShouldBeConsidered() and self:GetEligible("player")
+    if Addon.db.profile.simpleRoll then
+        return not Addon.db.profile.dontShare and self:ShouldBeConsidered()
+    else
+        return not Addon.db.profile.dontShare and self:ShouldBeConsidered() and self:GetEligible("player")
+    end
 end
 
 -- Check if the addon should start a roll for an item
 function Self:ShouldBeRolledFor()
-    return not (self.isOwner and Addon.db.profile.dontShare) and self:ShouldBeConsidered() and self:GetNumEligible(true, self.isOwner) > 0
+    if Addon.db.profile.simpleRoll then
+        return not (self.isOwner and Addon.db.profile.dontShare) and self:ShouldBeConsidered()
+    else
+        return not (self.isOwner and Addon.db.profile.dontShare) and self:ShouldBeConsidered() and self:GetNumEligible(true, self.isOwner) > 0
+    end
 end
 
 -------------------------------------------------------
