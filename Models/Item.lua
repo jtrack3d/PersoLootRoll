@@ -846,7 +846,7 @@ function Self:HasSufficientQuality(loot)
     elseif IsInRaid() then
         return quality >= LE_ITEM_QUALITY_EPIC
     elseif Addon.db.profile.allowDisenchant then
-        return quality >= LE_ITEM_QUALITY_UNCOMMON
+        return quality >= LE_ITEM_QUALITY_RARE
     else
         return quality >= LE_ITEM_QUALITY_EPIC
     end

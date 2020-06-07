@@ -47,8 +47,15 @@ function Self.EnableGroupLootRollHook()
                     local item = roll.item
                     local disReason = not roll:GetOwnerAddon() and "PLR_NO_ADDON"
                         or not roll.disenchant and "PLR_NO_DISENCHANT"
-                        -- or not Unit.IsEnchanter() and "PLR_NOT_ENCHANTER"
+                        or (not Addon.db.profile.allowDisenchant and 
+                            not Unit.IsEnchanter()               and 
+                            "PLR_NOT_ENCHANTER")
                         or nil
+
+                    local requireEnchSkill = 1
+                    if Addon.db.profile.allowDisenchant then
+                        requireEnchSkill = 0 -- If we're using devmode, heck the ench skill
+                    end
 
                     return item.texture, item.name, 1, item.quality, item.bindType == LE_ITEM_BIND_ON_ACQUIRE,
                         true,                   -- Can need
@@ -57,7 +64,7 @@ function Self.EnableGroupLootRollHook()
                         5,                      -- Reason need
                         "PLR_NO_ADDON",         -- Reason greed
                         disReason,              -- Reason disenchant
-                        0                       -- Disenchant skill required
+                        requireEnchSkill        -- Disenchant skill required
                 end
             else
                 return Self.hooks.GetLootRollItemInfo(id)
@@ -132,6 +139,17 @@ function Self.EnableGroupLootRollHook()
                 self.PassButton:SetHighlightTexture("Interface\\AddOns\\PersoLootRoll\\Media\\Roll-Pass-Highlight")
                 self.PassButton:SetPushedTexture("Interface\\AddOns\\PersoLootRoll\\Media\\Roll-Pass-Down")
                 self.PassButton.tooltipText = L["GIVE_AWAY"]
+                if Addon.db.profile.allowDisenchant then
+                    self.NeedButton.tooltipText = "DO NOT OFFER"
+                    self.PassButton.tooltipText = "OFFER MAIN OR OFF SPEC"
+                    self.GreedButton.tooltipText = "OFFER MAIN SPEC"
+                    self.DisenchantButton.tooltipText = "OFFER MS/OS/MOG"
+                end
+            elseif not roll.item.isOwner and Addon.db.profile.allowDisenchant then
+                self.NeedButton.tooltipText = "ROLL MAIN SPEC"
+                self.PassButton.tooltipText = "PASS"
+                self.DisenchantButton.tooltipText = "ROLL TRANSMOG"
+                self.GreedButton.tooltipText = "ROLL OFFSPEC"
             end
 
             -- Highlight
@@ -163,7 +181,7 @@ function Self.EnableGroupLootRollHook()
             self.NeedButton:SetNormalTexture("Interface\\Buttons\\UI-GroupLoot-Dice-Up")
             self.NeedButton:SetHighlightTexture("Interface\\Buttons\\UI-GroupLoot-Dice-Highlight")
             self.NeedButton:SetPushedTexture("Interface\\Buttons\\UI-GroupLoot-Dice-Down")
-            self.NeedButton.tooltipText = "Main Spec" --NEED
+            self.NeedButton.tooltipText = NEED
             self.PassButton:SetNormalTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up")
             self.PassButton:SetHighlightTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Highlight")
             self.PassButton:SetPushedTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Down")
@@ -206,9 +224,10 @@ function Self.EnableGroupLootRollHook()
         if not Self:IsHooked(frame.NeedButton, "OnClick") then
             Self:RawHookScript(frame.NeedButton, "OnClick", onButtonClick)
             frame.NeedButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            frame.NeedButton.tooltipText = NEED
             Self:RawHookScript(frame.GreedButton, "OnClick", onButtonClick)
             frame.GreedButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-            frame.GreedButton.tooltipText = "Offer Main Spec"
+            frame.GreedButton.tooltipText = GREED
         end
     end
 
