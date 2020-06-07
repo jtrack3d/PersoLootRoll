@@ -845,8 +845,10 @@ function Self:HasSufficientQuality(loot)
         return quality >= LE_ITEM_QUALITY_COMMON
     elseif IsInRaid() then
         return quality >= LE_ITEM_QUALITY_EPIC
+    elseif Addon.db.profile.allowDisenchant then
+        return quality >= LE_ITEM_QUALITY_UNCOMMON
     else
-        return quality >= LE_ITEM_QUALITY_RARE
+        return quality >= LE_ITEM_QUALITY_EPIC
     end
 end
 
@@ -958,11 +960,18 @@ end
 function Self:GetEligible(unit)
     if not self.eligible then
         if unit then
-            if self.isSoulbound and not self:CanBeEquipped(unit) then
+            -- If in dev mode don't check if the item can be equipped. This should probably be it
+            if self.isSoulbound and Addon.db.profile.allowDisenchant then
+                Addon:Debug("GetEligible("..unit.."): isSoulbound and allowDisenchant(devmode) -> nil")
+                return nil
+            elseif self.isSoulbound and not self:CanBeEquipped(unit) and not Addon.db.profile.allowDisenchant then
+                Addon:Debug("GetEligible("..unit.."): isSoulbound and not CanBeEquipped and not allowDisenchant(devmode) -> nil")
                 return nil
             elseif self:IsTransmogMissing(unit) then
+                Addon:Debug("GetEligible("..unit.."): isTransmogMissing -> true")
                 return true
-            elseif not self:HasSufficientLevel(unit) then
+            elseif not self:HasSufficientLevel(unit) and not Addon.db.profile.allowDisenchant then
+                Addon:Debug("GetEligible("..unit.."): HasSufficientLevel and not allowDisenchant(devmode) -> false")
                 return false
             else
                 local isSelf = Unit.IsSelf(unit)
@@ -972,8 +981,16 @@ function Self:GetEligible(unit)
                 if isUseful and isSelf and Addon.db.profile.filter.pawn and IsAddOnLoaded("Pawn") and self.equipLoc ~= Self.TYPE_TRINKET then
                     isUseful = self:IsPawnUpgrade(unit, specs)
                 end
+                
+                local ret = Addon.db.profile.allowDisenchant or isUseful or false
+                Addon:Debug("GetEligible("..unit.."): Addon.db.profile.allowDisenchant or isUseful or false -> ", Addon.db.profile.allowDisenchant or isUseful or false)
+                -- Roll.lua Self.ShouldEnd() calls the below line, it's the only call i've seen that uses a second return value from this.
+                -- Need to figure out if that's only coming from this line or what's going on 
+                -- for unit,ilvl in pairs(self.item:GetEligible()) do
 
-                return isUseful or false, Util.Tbl.Release(specs)
+                --* Util.Tbl.Release() doesn't return anything, so I'm going to put it on its own line so things still happen correctly
+                -- Otherwise I guess lets just return true here
+                return ret, Util.Tbl.Release(specs)
             end
         else
             local eligible = Util.Tbl.New()
@@ -1020,7 +1037,7 @@ function Self:ShouldBeChecked(owner)
     owner = owner or type(self) == "table" and self.owner
     local item = type(self) == "table" and self.link or self
 
-    if Addon.db.profile.simpleRoll then
+    if Addon.db.profile.allowDisenchant then
         return item and owner and not Addon.db.profile.dontShare and Self.HasSufficientQuality(item, true)
     else
         return item and owner and not (Addon.db.profile.dontShare and not Unit.IsSelf(owner)) and IsEquippableItem(item) and Self.HasSufficientQuality(item, true)
@@ -1029,7 +1046,7 @@ end
 
 -- Check if the item should be handled by the addon
 function Self:ShouldBeConsidered()
-    if Addon.db.profile.simpleRoll then
+    if Addon.db.profile.allowDisenchant then
         return self:HasSufficientQuality() and self:GetFullInfo().isTradable
     else
         return self:HasSufficientQuality() and self:GetBasicInfo().isEquippable and self:GetFullInfo().isTradable
@@ -1038,7 +1055,7 @@ end
 
 -- Check if the addon should offer to bid on an item
 function Self:ShouldBeBidOn()
-    if Addon.db.profile.simpleRoll then
+    if false then --Addon.db.profile.allowDisenchant then
         return not Addon.db.profile.dontShare and self:ShouldBeConsidered()
     else
         return not Addon.db.profile.dontShare and self:ShouldBeConsidered() and self:GetEligible("player")
@@ -1047,7 +1064,7 @@ end
 
 -- Check if the addon should start a roll for an item
 function Self:ShouldBeRolledFor()
-    if Addon.db.profile.simpleRoll then
+    if Addon.db.profile.allowDisenchant then
         return not (self.isOwner and Addon.db.profile.dontShare) and self:ShouldBeConsidered()
     else
         return not (self.isOwner and Addon.db.profile.dontShare) and self:ShouldBeConsidered() and self:GetNumEligible(true, self.isOwner) > 0

@@ -47,17 +47,17 @@ function Self.EnableGroupLootRollHook()
                     local item = roll.item
                     local disReason = not roll:GetOwnerAddon() and "PLR_NO_ADDON"
                         or not roll.disenchant and "PLR_NO_DISENCHANT"
-                        or not Unit.IsEnchanter() and "PLR_NOT_ENCHANTER"
+                        -- or not Unit.IsEnchanter() and "PLR_NOT_ENCHANTER"
                         or nil
 
                     return item.texture, item.name, 1, item.quality, item.bindType == LE_ITEM_BIND_ON_ACQUIRE,
                         true,                   -- Can need
                         roll:GetOwnerAddon(),   -- Can greed
-                        not disReason,          -- Can disenchant
+                        true,                   -- Can disenchant -- was ```not disReason```
                         5,                      -- Reason need
                         "PLR_NO_ADDON",         -- Reason greed
                         disReason,              -- Reason disenchant
-                        1                       -- Disenchant skill required
+                        0                       -- Disenchant skill required
                 end
             else
                 return Self.hooks.GetLootRollItemInfo(id)
@@ -163,7 +163,7 @@ function Self.EnableGroupLootRollHook()
             self.NeedButton:SetNormalTexture("Interface\\Buttons\\UI-GroupLoot-Dice-Up")
             self.NeedButton:SetHighlightTexture("Interface\\Buttons\\UI-GroupLoot-Dice-Highlight")
             self.NeedButton:SetPushedTexture("Interface\\Buttons\\UI-GroupLoot-Dice-Down")
-            self.NeedButton.tooltipText = NEED
+            self.NeedButton.tooltipText = "Main Spec" --NEED
             self.PassButton:SetNormalTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Up")
             self.PassButton:SetHighlightTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Highlight")
             self.PassButton:SetPushedTexture("Interface\\Buttons\\UI-GroupLoot-Pass-Down")
@@ -208,6 +208,7 @@ function Self.EnableGroupLootRollHook()
             frame.NeedButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             Self:RawHookScript(frame.GreedButton, "OnClick", onButtonClick)
             frame.GreedButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+            frame.GreedButton.tooltipText = "Offer Main Spec"
         end
     end
 

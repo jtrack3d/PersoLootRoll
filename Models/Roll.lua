@@ -309,6 +309,69 @@ function Self.Update(data, unit)
         or ml and unit == ml and Self.Find(nil, nil, data.item, data.itemOwnerId, data.item.owner)
 
     Addon:Debug("Roll.Update", unit, data, roll)
+    -- Unit: "Pakranjun-KulTiras"
+    -- Data:
+    --[[
+        {
+            OwnerId: 2,
+            Item: {
+                owner: "Pakranjun-KulTiras",
+                eligible: 0,
+                link="[Tidespray Linen]", -- This is an actual item link that is clickable
+            }
+            itemOwnerId: 2,
+            started: 1591320797,
+            status: 2,
+            owner: "Pakranjun-KulTiras",
+            timeout: 50
+        }
+    ]]
+    -- roll:
+    --[[
+        {
+            timers: {},
+            whispers: 0,
+            votes: {},
+            item: {
+                equipLoc: "",
+                color: "ffffff",
+                classId: 7,
+                subClassId: 5,
+                bindType: 0,
+                infoLevel: 2,
+                baseLevel: 111,
+                isEquippable: false,
+                expacId: 7,
+                quality: 1,
+                linkLevel: 120,
+                link: "[Tidespray Linen]" -- same as above
+                id: 152576,
+                owner: "Pakranjun-KulTiras",
+                subType: "Cloth",
+                level: 111,
+                isOwner: false,
+                name: "Tidespray Linen",
+                position: {},
+                minLevel: 0,
+                isRelic: false,
+                isTradable: true,
+                texture: 2067081
+            },
+            status: 0,
+            created: 1591320788,
+            rolls: {},
+            timeout: 50,
+            id: 2,
+            owner: "Pakranjun-KulTiras",
+            ownerId: 2,
+            isOwner: false,
+            itemOwnerId: 2,
+            bids: {
+                Pakranjun-KulTiras: 4 -- This was not a string
+            }
+            }
+        }
+    ]]
 
     -- or create the roll
     if not roll then

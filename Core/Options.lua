@@ -24,7 +24,7 @@ Self.DEFAULTS = {
         dontShare = false,
         awardSelf = false,
         bidPublic = false,
-        chillMode = false,
+        chillMode = true, -- Assume chill mode on
         allowDisenchant = false,
         simpleRoll = true,
 
