@@ -206,11 +206,13 @@ function Self.CHAT_MSG_SYSTEM(_, _, msg)
 end
 
 -- Loot
-
+-- PM - This EVENT handler detect incoming loot and decide to start a roll.
 ---@param msg string
 ---@param sender string
 function Self.CHAT_MSG_LOOT(_, _, msg, _, _, _, sender)
     local unit = Unit(sender)
+
+    -- PM - Don't roll if OFF, not in group, not self,  Unit is tracking?
     if not Self:IsTracking() or not Unit.InGroup(unit) or not Unit.IsSelf(unit) and Self:UnitIsTracking(unit, true) then return end
 
     -- Check for bonus roll or crafting
@@ -230,6 +232,7 @@ function Self.CHAT_MSG_LOOT(_, _, msg, _, _, _, sender)
             local owner = Session.GetMasterlooter() or unit
             local isOwner = Unit.IsSelf(owner)
 
+-- ONE OF THESE THREE Clauses?
             item:OnFullyLoaded(function ()
                 if isOwner and item:ShouldBeRolledFor() then
                     Self:Debug("Events.Loot.Start", owner)
@@ -242,6 +245,7 @@ function Self.CHAT_MSG_LOOT(_, _, msg, _, _, _, sender)
                     end
                     roll:SendStatus(true)
                 else
+                    Self:Debug("Events CHAT Else")
                     Self:Debug("Events.Loot.Cancel", Self.db.profile.dontShare, owner, isOwner, unit, item.isOwner, item:HasSufficientQuality(), item:GetBasicInfo().isEquippable, item:GetFullInfo().isTradable, item:GetNumEligible(true))
                     Roll.Add(item, unit):Cancel()
                 end

@@ -846,7 +846,7 @@ function Self:HasSufficientQuality(loot)
     elseif IsInRaid() then
         return quality >= LE_ITEM_QUALITY_EPIC
     else
-        return quality >= LE_ITEM_QUALITY_RARE
+        return quality >= LE_ITEM_QUALITY_COMMON
     end
 end
 
@@ -1038,11 +1038,11 @@ end
 
 -- Check if the addon should offer to bid on an item
 function Self:ShouldBeBidOn()
-    if Addon.db.profile.simpleRoll then
-        return not Addon.db.profile.dontShare and self:ShouldBeConsidered()
-    else
+    --if Addon.db.profile.simpleRoll then
+        --return not Addon.db.profile.dontShare and self:ShouldBeConsidered()
+    --else
         return not Addon.db.profile.dontShare and self:ShouldBeConsidered() and self:GetEligible("player")
-    end
+    --end
 end
 
 -- Check if the addon should start a roll for an item

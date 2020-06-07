@@ -495,7 +495,7 @@ function Self:Start(startedOrManually)
     self.item:OnLoaded(function ()
         self.item:GetFullInfo()
 
-        -- Check if we can start he roll
+        -- Check if we can start the roll
         local valid, msg = self:Validate(Self.STATUS_PENDING)
         if not valid then
             Addon:Error(msg)
@@ -1115,6 +1115,9 @@ end
 
 -- Check if we should advertise the roll to group chat.
 function Self:ShouldAdvertise(manually)
+    print ("ShouldAdvertise")
+    print ("  not self.posted")
+
     return not self.posted and self:CanBeAwarded() and not self:ShouldEnd() and (
         manually or Comm.ShouldInitChat() and (self.bid or Session.GetMasterlooter())
     )
@@ -1132,7 +1135,12 @@ end
 
 -- Advertise the roll to the group
 function Self:Advertise(manually, silent)
+    print ("advertise")
+    print (manually)
+    print (silent)
+
     if not self:ShouldAdvertise(manually) then
+        print ("not advertising")
         return false
     end
 
@@ -1297,7 +1305,8 @@ end
 ---@param checkIlvl boolean
 ---@return boolean
 function Self:UnitIsEligible(unit, checkIlvl)
-    if not checkIlvl and not self:HasMasterlooter() and Unit.IsUnit(unit, self.owner) then
+    -- Simple roll overrides all.  ??
+    if Addon.db.profile.simpleRoll or (not checkIlvl and not self:HasMasterlooter() and Unit.IsUnit(unit, self.owner)) then
         return true
     else
         local val = self.item:GetEligible(unit or "player")
@@ -1356,6 +1365,7 @@ end
 ---@param unit string
 ---@param checkIlvl boolean
 function Self:UnitCanBid(unit, bid, checkIlvl)
+    print "UnitCanBid"
     unit = Unit.Name(unit or "player")
 
     -- Obvious stuff

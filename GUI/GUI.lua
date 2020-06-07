@@ -455,6 +455,7 @@ end
 ---@param width number
 ---@param height number
 ---@return Icon
+-- Not used for rolls.
 function Self.CreateIconButton(icon, parent, onClick, desc, width, height)
     return Self(
         Self.CreateIcon(parent, Self.TooltipText, function (...)
