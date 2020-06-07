@@ -1051,7 +1051,7 @@ function Self:ShowRollFrame()
         self.shown = false
 
         if Addon.db.profile.ui.showRollFrames then
-            GroupLootFrame_OpenNewFrame(self:GetPlrId(), self:GetRunTime())
+            s(self:GetPlrId(), self:GetRunTime())
             self.shown = self:GetRollFrame() ~= nil
 
             -- TODO: This is required to circumvent a bug in ElvUI
