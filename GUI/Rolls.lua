@@ -476,7 +476,7 @@ function Self.UpdateRolls()
                 -- Disenchant
                 f = GUI.CreateIconButton("UI-GroupLoot-DE", actions, function (self)
                     GUI.RollBid(self:GetUserData("roll"), Roll.BID_DISENCHANT)
-                end, ROLL_DISENCHANT 14, 14)
+                end, ROLL_DISENCHANT, 14, 14)
 
                 -- Pass
                 GUI.CreateIconButton("UI-GroupLoot-Pass", actions, function (self)
