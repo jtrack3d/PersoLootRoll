@@ -848,7 +848,7 @@ function Self:HasSufficientQuality(loot)
     elseif Addon.db.profile.allowDisenchant then
         return quality >= LE_ITEM_QUALITY_RARE
     else
-        return quality >= LE_ITEM_QUALITY_EPIC
+        return quality >= LE_ITEM_QUALITY_RARE
     end
 end
 
@@ -960,38 +960,39 @@ end
 function Self:GetEligible(unit)
     if not self.eligible then
         if unit then
-            -- If in dev mode don't check if the item can be equipped. This should probably be it
-            if self.isSoulbound and Addon.db.profile.allowDisenchant then
-                Addon:Debug("GetEligible("..unit.."): isSoulbound and allowDisenchant(devmode) -> nil")
-                return nil
-            elseif self.isSoulbound and not self:CanBeEquipped(unit) and not Addon.db.profile.allowDisenchant then
-                Addon:Debug("GetEligible("..unit.."): isSoulbound and not CanBeEquipped and not allowDisenchant(devmode) -> nil")
-                return nil
-            elseif self:IsTransmogMissing(unit) then
-                Addon:Debug("GetEligible("..unit.."): isTransmogMissing -> true")
                 return true
-            elseif not self:HasSufficientLevel(unit) and not Addon.db.profile.allowDisenchant then
-                Addon:Debug("GetEligible("..unit.."): HasSufficientLevel and not allowDisenchant(devmode) -> false")
-                return false
-            else
-                local isSelf = Unit.IsSelf(unit)
-                local specs = isSelf and Util(Addon.db.char.specs):CopyOnly(true, true):Keys()() or nil
-                local isUseful = self:IsUseful(unit, specs)
+            -- If in dev mode don't check if the item can be equipped. This should probably be it
+            -- if self.isSoulbound and Addon.db.profile.allowDisenchant then
+            --     Addon:Debug("GetEligible("..unit.."): isSoulbound and allowDisenchant(devmode) -> nil")
+            --     return nil
+            -- elseif self.isSoulbound and not self:CanBeEquipped(unit) and not Addon.db.profile.allowDisenchant then
+            --     Addon:Debug("GetEligible("..unit.."): isSoulbound and not CanBeEquipped and not allowDisenchant(devmode) -> nil")
+            --     return nil
+            -- elseif self:IsTransmogMissing(unit) then
+            --     Addon:Debug("GetEligible("..unit.."): isTransmogMissing -> true")
+            --     return true
+            -- elseif not self:HasSufficientLevel(unit) and not Addon.db.profile.allowDisenchant then
+            --     Addon:Debug("GetEligible("..unit.."): HasSufficientLevel and not allowDisenchant(devmode) -> false")
+            --     return false
+            -- else
+            --     local isSelf = Unit.IsSelf(unit)
+            --     local specs = isSelf and Util(Addon.db.char.specs):CopyOnly(true, true):Keys()() or nil
+            --     local isUseful = self:IsUseful(unit, specs)
 
-                if isUseful and isSelf and Addon.db.profile.filter.pawn and IsAddOnLoaded("Pawn") and self.equipLoc ~= Self.TYPE_TRINKET then
-                    isUseful = self:IsPawnUpgrade(unit, specs)
-                end
+            --     if isUseful and isSelf and Addon.db.profile.filter.pawn and IsAddOnLoaded("Pawn") and self.equipLoc ~= Self.TYPE_TRINKET then
+            --         isUseful = self:IsPawnUpgrade(unit, specs)
+            --     end
                 
-                local ret = Addon.db.profile.allowDisenchant or isUseful or false
-                Addon:Debug("GetEligible("..unit.."): Addon.db.profile.allowDisenchant or isUseful or false -> ", Addon.db.profile.allowDisenchant or isUseful or false)
-                -- Roll.lua Self.ShouldEnd() calls the below line, it's the only call i've seen that uses a second return value from this.
-                -- Need to figure out if that's only coming from this line or what's going on 
-                -- for unit,ilvl in pairs(self.item:GetEligible()) do
+            --     local ret = Addon.db.profile.allowDisenchant or isUseful or false
+            --     Addon:Debug("GetEligible("..unit.."): Addon.db.profile.allowDisenchant or isUseful or false -> ", Addon.db.profile.allowDisenchant or isUseful or false)
+            --     -- Roll.lua Self.ShouldEnd() calls the below line, it's the only call i've seen that uses a second return value from this.
+            --     -- Need to figure out if that's only coming from this line or what's going on 
+            --     -- for unit,ilvl in pairs(self.item:GetEligible()) do
 
-                --* Util.Tbl.Release() doesn't return anything, so I'm going to put it on its own line so things still happen correctly
-                -- Otherwise I guess lets just return true here
-                return ret, Util.Tbl.Release(specs)
-            end
+            --     --* Util.Tbl.Release() doesn't return anything, so I'm going to put it on its own line so things still happen correctly
+            --     -- Otherwise I guess lets just return true here
+            --     return ret, Util.Tbl.Release(specs)
+            --end
         else
             local eligible = Util.Tbl.New()
             for i=1,GetNumGroupMembers() do
@@ -1064,10 +1065,17 @@ end
 
 -- Check if the addon should start a roll for an item
 function Self:ShouldBeRolledFor()
+        Addon:Debug("ShouldBeRolledFor()")
     if Addon.db.profile.allowDisenchant then
         return not (self.isOwner and Addon.db.profile.dontShare) and self:ShouldBeConsidered()
     else
-        return not (self.isOwner and Addon.db.profile.dontShare) and self:ShouldBeConsidered() and self:GetNumEligible(true, self.isOwner) > 0
+        local shouldBeConsidered = self:ShouldBeConsidered()
+        Addon:Debug("ShouldBeRolledFor:shouldBeConsidered - ", shouldBeConsidered)
+        
+        local numEligible = self:GetNumEligible(true, self.isOwner)
+        Addon:Debug("ShouldBeRolledFor:numEligible - ", numEligible)
+
+        return not (self.isOwner and Addon.db.profile.dontShare) and shouldBeConsidered and numEligible > 0
     end
 end
 
