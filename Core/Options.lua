@@ -332,14 +332,14 @@ function Self.RegisterGeneral()
                 type = "toggle",
                 order = it(),
                 set = function (_, val)
-                    PersoLootRollIconDB.hide = not val or nil
+                    PerZionLootRollIconDB.hide = not val or nil
                     if val then
                         LDBIcon:Show(Name)
                     else
                         LDBIcon:Hide(Name)
                     end
                 end,
-                get = function (_) return not PersoLootRollIconDB.hide end,
+                get = function (_) return not PerZionLootRollIconDB.hide end,
                 width = Self.WIDTH_FULL
             },
             showRollFrames = {
@@ -1548,8 +1548,8 @@ function Self.RegisterMinimapIcon()
     end
 
     -- Icon
-    if not PersoLootRollIconDB then PersoLootRollIconDB = {} end
-    LDBIcon:Register(Name, plugin, PersoLootRollIconDB)
+    if not PerZionLootRollIconDB then PerZionLootRollIconDB = {} end
+    LDBIcon:Register(Name, plugin, PerZionLootRollIconDB)
 end
 
 -------------------------------------------------------

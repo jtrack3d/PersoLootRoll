@@ -579,7 +579,7 @@ function Self:Start(startedOrManually)
                     -- Schedule timer to end the roll and/or hide the frame
                     if self.timeout > 0 then
                         self.timers.bid = Addon:ScheduleTimer(Self.End, self:GetTimeLeft(), self, nil, true)
-                    elseif not Addon.db.profile.chillMode then
+                    elseif not true then -- Addon.db.profile.chillMode then
                         self.timers.bid = Addon:ScheduleTimer(Self.HideRollFrame, self:GetTimeLeft(), self)
                     end
 
@@ -1273,7 +1273,7 @@ end
 -- Get the total runtime for a roll
 ---@param real boolean
 function Self:GetRunTime(real)
-    if self.timeout == 0 and (real or Addon.db.profile.chillMode) then
+    if self.timeout == 0 and (real or true) then --Addon.db.profile.chillMode) then
         return 0
     else
         return max(0, self.timeout == 0 and self:CalculateTimeout(real) or self.timeout + (real and 0 or Self.DELAY))
@@ -1283,7 +1283,7 @@ end
 -- Get the time that is left on a roll
 ---@param real boolean
 function Self:GetTimeLeft(real)
-    if self.status ~= Self.STATUS_RUNNING and real or self.timeout == 0 and (real or Addon.db.profile.chillMode) then
+    if self.status ~= Self.STATUS_RUNNING and real or self.timeout == 0 and (real or true) then --Addon.db.profile.chillMode) then
         return 0
     else
         return max(0, (self.started and self.started - time() or 0) + self:GetRunTime(real))
@@ -1328,7 +1328,7 @@ end
 function Self.CalculateTimeout(selfOrOwner, real)
     local owner = type(selfOrOwner) == "table" and selfOrOwner.owner or selfOrOwner
     local ml = Session.GetMasterlooter()
-    local chill = Addon.db.profile.chillMode
+    local chill = true -- Addon.db.profile.chillMode
     local timeout
 
     if not ml and chill and (Unit.IsSelf(owner) and Addon.db.profile.awardSelf or not Addon:UnitIsTracking(owner)) then
@@ -1476,7 +1476,7 @@ function Self:CanBeRun(manually)
     end
 
     local ml = Session.GetMasterlooter()
-    local waitForOwner = Util.Check(ml, Session.rules.allowKeep, Addon.db.profile.chillMode)
+    local waitForOwner = Util.Check(ml, Session.rules.allowKeep, true)-- Addon.db.profile.chillMode)
     local startManually = ml and Addon.db.profile.masterloot.rules.startManually
     local startLimit = ml and Addon.db.profile.masterloot.rules.startLimit or 0
 

@@ -2,7 +2,7 @@
 local Name = ...
 ---@type Addon
 local Addon = select(2, ...)
-local Version = GetAddOnMetadata("PersoLootRoll", "Version")
+local Version = GetAddOnMetadata("PerZionLootRoll", "Version")
 LibStub("AceAddon-3.0"):NewAddon(Addon, Name, "AceConsole-3.0", "AceComm-3.0", "AceSerializer-3.0", "AceEvent-3.0", "AceTimer-3.0", "AceHook-3.0")
 
 -- Constants

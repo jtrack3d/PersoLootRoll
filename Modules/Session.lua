@@ -66,7 +66,7 @@ function Self.SetMasterlooter(unit, rules, silent)
         wipe(Self.rules)
     end
 
-    PersoLootRollML = unit
+    PerZionLootRollML = unit
     Self.masterlooter = unit
 
     Addon:CheckState(true)
@@ -207,9 +207,9 @@ end
 
 -- Restore a session
 function Self.Restore()
-    if Unit.InGroup(PersoLootRollML) then
-        Self.SetMasterlooter(PersoLootRollML, {}, true)
-        Self.SendRequest(PersoLootRollML)
+    if Unit.InGroup(PerZionLootRollML) then
+        Self.SetMasterlooter(PerZionLootRollML, {}, true)
+        Self.SendRequest(PerZionLootRollML)
     end
 end
 

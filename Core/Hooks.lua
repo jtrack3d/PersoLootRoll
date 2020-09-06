@@ -129,15 +129,17 @@ function Self.EnableGroupLootRollHook()
             self.Player:SetTextColor(color.r, color.g, color.b)
             self.Player:Show()
 
+            
             -- Buttons
             if roll.item.isOwner and Util.Check(Session.GetMasterlooter(), Session.rules.allowKeep, roll.isOwner) then
-                self.NeedButton:SetNormalTexture("Interface\\AddOns\\PersoLootRoll\\Media\\Roll-Keep-Up")
-                self.NeedButton:SetHighlightTexture("Interface\\AddOns\\PersoLootRoll\\Media\\Roll-Keep-Highlight")
-                self.NeedButton:SetPushedTexture("Interface\\AddOns\\PersoLootRoll\\Media\\Roll-Keep-Down")
+                local directoryName = "PersoLootRoll"
+                self.NeedButton:SetNormalTexture(   "Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Keep-Up")
+                self.NeedButton:SetHighlightTexture("Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Keep-Highlight")
+                self.NeedButton:SetPushedTexture(   "Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Keep-Down")
+                self.PassButton:SetNormalTexture(   "Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Pass-Up")
+                self.PassButton:SetHighlightTexture("Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Pass-Highlight")
+                self.PassButton:SetPushedTexture(   "Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Pass-Down")
                 self.NeedButton.tooltipText = L["KEEP"]
-                self.PassButton:SetNormalTexture("Interface\\AddOns\\PersoLootRoll\\Media\\Roll-Pass-Up")
-                self.PassButton:SetHighlightTexture("Interface\\AddOns\\PersoLootRoll\\Media\\Roll-Pass-Highlight")
-                self.PassButton:SetPushedTexture("Interface\\AddOns\\PersoLootRoll\\Media\\Roll-Pass-Down")
                 self.PassButton.tooltipText = L["GIVE_AWAY"]
                 if Addon.db.profile.allowDisenchant then
                     self.NeedButton.tooltipText = "DO NOT OFFER"

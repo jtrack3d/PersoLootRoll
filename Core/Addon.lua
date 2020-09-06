@@ -79,7 +79,7 @@ Self.timers = {}
 -- Called when the addon is loaded
 function Self:OnInitialize()
     -- Debug info
-    self:ToggleDebug(PersoLootRollDebug or self.DEBUG)
+    self:ToggleDebug(PerZionLootRollDebug or self.DEBUG)
     self:RegisterErrorHandler()
     
     -- Load DB
@@ -136,7 +136,7 @@ function Self:ToggleDebug(debug)
         self.DEBUG = not self.DEBUG
     end
 
-    PersoLootRollDebug = self.DEBUG
+    PerZionLootRollDebug = self.DEBUG
 
     if self.DEBUG or self.db then
         self:Info("Debugging " .. (self.DEBUG and "en" or "dis") .. "abled")
