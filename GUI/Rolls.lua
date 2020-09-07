@@ -463,22 +463,22 @@ function Self.UpdateRolls()
                     end
                 end
 
-                -- Need
+                -- Need (Main Spec)
                 f = GUI.CreateIconButton("UI-GroupLoot-Dice", actions, needGreedClick, NEED, 14, 14)
                 f:SetUserData("bid", Roll.BID_NEED)
                 f.frame:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
-                -- Greed
+                -- Greed (Off Spec)
                 f = GUI.CreateIconButton("UI-GroupLoot-Coin", actions, needGreedClick, GREED)
                 f:SetUserData("bid", Roll.BID_GREED)
                 f.frame:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
-                -- Disenchant
+                -- Disenchant (Transmog)
                 f = GUI.CreateIconButton("UI-GroupLoot-DE", actions, function (self)
                     GUI.RollBid(self:GetUserData("roll"), Roll.BID_DISENCHANT)
-                end, ROLL_DISENCHANT, 14, 14)
+                end, ROLL_DISENCHANT, 13, 13) -- disenchant icon
 
-                -- Pass
+                -- Pass (Do not roll)
                 GUI.CreateIconButton("UI-GroupLoot-Pass", actions, function (self)
                     GUI.RollBid(self:GetUserData("roll"), Roll.BID_PASS)
                 end, PASS, 13, 13)
