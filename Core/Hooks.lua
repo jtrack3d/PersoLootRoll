@@ -130,9 +130,12 @@ function Self.EnableGroupLootRollHook()
             self.Player:Show()
 
             
+            local directoryName = "PerZionLootRoll"
+            self.DisenchantButton:SetNormalTexture(   "Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Mog-Up")
+            self.DisenchantButton:SetHighlightTexture("Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Mog-Highlight")
+            self.DisenchantButton:SetPushedTexture(   "Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Mog-Down")
             -- Buttons
             if roll.item.isOwner and Util.Check(Session.GetMasterlooter(), Session.rules.allowKeep, roll.isOwner) then
-                local directoryName = "PersoLootRoll"
                 self.NeedButton:SetNormalTexture(   "Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Keep-Up")
                 self.NeedButton:SetHighlightTexture("Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Keep-Highlight")
                 self.NeedButton:SetPushedTexture(   "Interface\\AddOns\\"..directoryName.."\\Media\\Roll-Keep-Down")

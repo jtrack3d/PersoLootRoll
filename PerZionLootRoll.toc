@@ -1,0 +1,35 @@
+## Interface: 80300
+## Title: PerZionLootRoll
+## Notes: A loot roll addon for personal loot.
+## Notes-deDE: Ein Beute Vergabe Addon für Persönlichen Loot.
+## Notes-zhCN: 战利品的个人拾取分配插件。
+## Notes-esES: Un addon de tiradas de dados por objetos para el loot personal.
+## Notes-zhTW: 一個用於個人拾取的戰利品分配插件。
+## Version: @project-version@
+## SavedVariables: PerZionLootRollDB, PerZionLootRollIconDB, PerZionLootRollML, PerZionLootRollDebug
+## OptionalDeps: Pawn, EPGPNext, WoWUnit
+
+# Libs
+Libs\libs.xml
+
+# Initialization
+Init.lua
+
+# Application
+Util\util.xml
+Locale\locale.xml
+Data\data.xml
+Models\models.xml
+Core\core.xml
+
+# Modules, Plugins
+Modules\modules.xml
+Plugins\plugins.xml
+
+# GUI
+GUI\gui.xml
+
+#@do-not-package@
+## Version: 0-dev0
+Tests\tests.xml
+#@end-do-not-package@
